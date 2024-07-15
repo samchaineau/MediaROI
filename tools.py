@@ -79,3 +79,10 @@ def saveTypeBudget(df : pd.DataFrame,
             df.loc[df["Media Channel"]==k, ["New Amount"]] = v
             df["Allocation"] = df["New Amount"]/budget*100
     return df
+
+def compare_global_roi(dict_of_df : dict):
+    roi_per_df = {k : [sum(v["Contribution"])/sum(v["Investment"])] for k,v in dict_of_df.items()}
+    compare_df = pd.DataFrame(roi_per_df).T.reset_index()
+    compare_df.columns = ["Scenario", "ROI"]
+    compare_df['Values'] = compare_df['ROI'].apply(lambda x: f'{x:.2f}')
+    return compare_df
