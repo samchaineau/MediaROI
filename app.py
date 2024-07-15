@@ -23,13 +23,23 @@ def get_months(df : pd.DataFrame):
     return list(unique_months)
 
 def main():
-    st.title("MediaROI simulator")
     raw_data = load_excel("Raw_Data_mediaROI_simulateur - mai 2024.xlsx")
     mmm_results_data = load_excel("Resultats MMM pour simulateur - mediaROI - mai 2024.xlsx")
     roi_values = preprocess_roi(mmm_results_data["mmm_results"])
     
     monthsList = get_months(raw_data["DATA"])
-    raw_data = preprocess_data(raw_data["DATA"], [monthsList[-12], monthsList[-1]])
+    
+    
+    st.header("Time period")
+    st.markdown("Pick a time period to perform simulation and comparison")
+    startDateCol, endDateCol, _ = st.columns([1,1,4])
+    with startDateCol:
+        startDate = st.selectbox(label="Start month", options= monthsList, index = len(monthsList)-12)
+    
+    with endDateCol:
+        endDate = st.selectbox(label="End month", options= monthsList, index = len(monthsList)-1)
+        
+    raw_data = preprocess_data(raw_data["DATA"], [startDate, endDate])
     
     optimized_budget, previous_budget = preprocess_budget(mmm_results_data["budget_optimization"])
     optimized_budget["Amount"] = optimized_budget["Allocation"]*raw_data["Amount"].sum()
@@ -42,23 +52,24 @@ def main():
     previous_budget["Contribution"] = previous_budget["Amount"]*previous_budget["roi"]
     previous_budget["Budget"] = "Initial"
     
-    _, initCol, _, recoCol, _ = st.columns([1,2,1,2,1])
-    with initCol:
-        st.header("Initial scenario")
-        st.markdown(f"Initial ROI is")
+    initRecoCol, incrementalCol, _, logoCol = st.columns([3,3,4,2])
+    
+    with initRecoCol:        
+        st.header("Initial ROI")
         st.subheader(f'{(sum(previous_budget["Contribution"])/sum(previous_budget["Amount"])):,.2f}')
         
-    with recoCol:
-        st.header("Optimal scenario")
-        st.markdown(f"Optimal ROI is")
+        st.header("Optimal ROI")
         st.subheader(f'{(sum(optimized_budget["Contribution"])/sum(optimized_budget["Amount"])):,.2f}')
     
-    _, centerCol, _ = st.columns([4,3,4])
-    with centerCol:   
-        st.markdown("Incremental")
+    with incrementalCol: 
+        st.header("Incremental")  
         st.subheader(f'{(sum(optimized_budget["Contribution"]) - sum(previous_budget["Contribution"])):,.2f} Euros')
-        
-    st.header("Simulations")
+    
+    with logoCol:
+        st.header("Powered by")
+        st.image("logo mediaROI.png")
+    
+    st.title("Simulations")
     optimCol, _, percCol = st.columns([3,5,3])
     
     with optimCol:
@@ -173,42 +184,58 @@ def main():
         
         filterCol, simCol = st.columns([1, 3])
         
-        with filterCol:
-            budg_or_cont = st.selectbox(label = "Select indicator to compare previous and optimal scenario",
-                                        options = ["Budget", "Contribution", "ROI"], 
-                                        index = 2)
+        roiTab, contTab, budTab = st.tabs(["ROI", "Contribution", "Budget"])
         
         
         init_optim_df = pd.concat([optimized_budget, previous_budget, st.session_state.simulationResults]).reset_index(drop=True)
         
-        with simCol:
-            if budg_or_cont == "Budget":
-                comparison_df = init_optim_df[["Media Type", "Budget", "Amount"]]
-                comparison_df = comparison_df.groupby(["Media Type", "Budget"]).sum().reset_index()
-                comparison_df["Amount"] = comparison_df['Amount']/1000
-                comparison_df['Values'] = comparison_df['Amount'].apply(lambda x: f'{x:,.2f}')
-                fig = px.bar(comparison_df, x='Media Type', y='Amount', color="Budget", text='Values', barmode='group', labels = {"Amount" : "Investment (k Euros)"})
-                fig.update_traces(textposition='outside')
-                st.plotly_chart(fig)
+        with budTab:
+            comparison_df = init_optim_df[["Media Type", "Budget", "Amount"]]
+            comparison_df = comparison_df.groupby(["Media Type", "Budget"]).sum().reset_index()
+            comparison_df["Amount"] = comparison_df['Amount']/1000
+            comparison_df['Values'] = comparison_df['Amount'].apply(lambda x: f'{x:,.2f}')
+            fig = px.bar(comparison_df, 
+                            x='Media Type', 
+                            y='Amount', 
+                            color="Budget", 
+                            text='Values', 
+                            barmode='group', 
+                            labels = {"Amount" : "Investment (k Euros)"},
+                            color_discrete_sequence=["#000000", "#070996", "#19ACBF"])
+            fig.update_traces(textposition='outside')
+            st.plotly_chart(fig)
                 
             
-            if budg_or_cont == "Contribution":
-                comparison_df = init_optim_df[["Media Type", "Budget", "Contribution"]]
-                comparison_df = comparison_df.groupby(["Media Type", "Budget"]).sum().reset_index()
-                comparison_df["Contribution"] = comparison_df['Contribution']/1000
-                comparison_df['Values'] = comparison_df['Contribution'].apply(lambda x: f'{x:,.2f}')
-                fig = px.bar(comparison_df, x='Media Type', y='Contribution', color="Budget", text='Values', barmode='group', labels = {"Contribution" : "Contribution (k Euros)"})
-                fig.update_traces(textposition='outside')
-                st.plotly_chart(fig)
+        with contTab:
+            comparison_df = init_optim_df[["Media Type", "Budget", "Contribution"]]
+            comparison_df = comparison_df.groupby(["Media Type", "Budget"]).sum().reset_index()
+            comparison_df["Contribution"] = comparison_df['Contribution']/1000
+            comparison_df['Values'] = comparison_df['Contribution'].apply(lambda x: f'{x:,.2f}')
+            fig = px.bar(comparison_df, 
+                            x='Media Type', 
+                            y='Contribution', 
+                            color="Budget", 
+                            text='Values', 
+                            barmode='group', 
+                            labels = {"Contribution" : "Contribution (k Euros)"}, 
+                            color_discrete_sequence=["#000000", "#070996", "#19ACBF"])
+            fig.update_traces(textposition='outside')
+            st.plotly_chart(fig)
                 
-            if budg_or_cont == "ROI":
-                comparison_df = init_optim_df[["Media Type", "Budget", "Amount", "Contribution"]]
-                comparison_df = comparison_df.groupby(["Media Type", "Budget"]).sum().reset_index()
-                comparison_df["ROI"] = comparison_df["Contribution"]/comparison_df["Amount"]
-                comparison_df['Values'] = comparison_df['ROI'].apply(lambda x: f'{x:,.2f}')
-                fig = px.bar(comparison_df, x='Media Type', y='ROI', color="Budget", text='Values', barmode='group')
-                fig.update_traces(textposition='outside')
-                st.plotly_chart(fig)
+        with roiTab:
+            comparison_df = init_optim_df[["Media Type", "Budget", "Amount", "Contribution"]]
+            comparison_df = comparison_df.groupby(["Media Type", "Budget"]).sum().reset_index()
+            comparison_df["ROI"] = comparison_df["Contribution"]/comparison_df["Amount"]
+            comparison_df['Values'] = comparison_df['ROI'].apply(lambda x: f'{x:,.2f}')
+            fig = px.bar(comparison_df, 
+                            x='Media Type', 
+                            y='ROI', 
+                            color="Budget", 
+                            text='Values', 
+                            barmode='group',
+                            color_discrete_sequence=["#000000", "#070996", "#19ACBF"])
+            fig.update_traces(textposition='outside')
+            st.plotly_chart(fig)
     
         
          
