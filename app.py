@@ -3,10 +3,13 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 from datetime import datetime, timedelta
+from lightweight_mmm import utils, optimize_media, preprocessing, media_transforms
+import jax.numpy as jnp
 
 from tools import *
 
 st.set_page_config(layout="wide")
+
 
 def reset_channel_budget():
     st.session_state.channel_budget = {}
@@ -23,39 +26,55 @@ def get_months(df : pd.DataFrame):
     return list(unique_months)
 
 def main():
-    raw_data = load_excel("Raw_Data_mediaROI_simulateur - mai 2024.xlsx")
+    excel_data = load_excel("Raw_Data_mediaROI_simulateur - mai 2024.xlsx")
+    train_split = round(0.9*excel_data["DATA"].shape[0])
+    media_data_train = excel_data["DATA"][[c for c in excel_data["DATA"].columns if "Media_" in c]]
+    media_data_train = media_data_train.to_numpy()[:train_split, ...]
+    target_train = excel_data["DATA"]['Ventes'].to_numpy(dtype='float32')[:train_split]
+    
+    if "model" not in st.session_state.keys():
+        st.session_state.model = utils.load_model(file_path= "media_mix_model.pkl")
+        st.session_state.media_scaler = preprocessing.CustomScaler(divide_operation=jnp.mean)
+        st.session_state.media_scaler.fit_transform(media_data_train)
+        st.session_state.target_scaler = preprocessing.CustomScaler(divide_operation=jnp.mean)
+        st.session_state.target_scaler.fit_transform(target_train)
+    
     mmm_results_data = load_excel("Resultats MMM pour simulateur - mediaROI - mai 2024.xlsx")
     roi_values = preprocess_roi(mmm_results_data["mmm_results"])
-    
-    monthsList = get_months(raw_data["DATA"])
+
     
     st.image("logo mediaROI.png")
     
     with st.container():
-        st.header("Time period")
-        st.markdown("Pick a time period to perform simulation and comparison")
-        startDateCol, endDateCol, _, percCol, _ = st.columns([1,1,1,1,4])
-        with startDateCol:
-            startDate = st.selectbox(label="Start month", options= monthsList, index = len(monthsList)-3)
+        startDateCol, endDateCol, _, percCol, _ = st.columns([2,2,2,3,4])
         
-        with endDateCol:
-            endDate = st.selectbox(label="End month", options= monthsList, index = len(monthsList)-1)
+        startDate = list(excel_data["DATA"]["Date"])[-21]
+        endDate = list(excel_data["DATA"]["Date"])[-9]
         
         with percCol:
             usePerc = st.toggle("Use percentage for allocation", value=True)
-        
-    raw_data = preprocess_data(raw_data["DATA"], [startDate, endDate])
+     
+    
+    filtered_data = filter_data(excel_data["DATA"], [startDate, endDate])
+    raw_data = preprocess_data(excel_data["DATA"], [startDate, endDate])
     
     optimized_budget, previous_budget = preprocess_budget(mmm_results_data["budget_optimization"])
+    
     optimized_budget["Amount"] = optimized_budget["Allocation"]*raw_data["Amount"].sum()
-    optimized_budget = optimized_budget.merge(roi_values, on = ["Media Type", "Media Channel"])
-    optimized_budget["Contribution"] = optimized_budget["Amount"]*optimized_budget["roi"]
+    optimized_budget = makeSimulation(filtered_data, 
+                                      optimized_budget,
+                                      st.session_state.target_scaler,
+                                      st.session_state.media_scaler,
+                                      st.session_state.model)
     optimized_budget["Budget"] = "Optimal"
     grouped_optimized = optimized_budget[["Media Type", "Amount", "Allocation", "Contribution"]].groupby("Media Type").sum().reset_index()
     
     previous_budget["Amount"] = previous_budget["Allocation"]*raw_data["Amount"].sum()
-    previous_budget = previous_budget.merge(roi_values, on = ["Media Type", "Media Channel"])
-    previous_budget["Contribution"] = previous_budget["Amount"]*previous_budget["roi"]
+    previous_budget = makeSimulation(filtered_data, 
+                                      previous_budget,
+                                      st.session_state.target_scaler,
+                                      st.session_state.media_scaler,
+                                      st.session_state.model)
     previous_budget["Budget"] = "Initial"
     grouped_previous = previous_budget[["Media Type", "Amount", "Allocation", "Contribution"]].groupby("Media Type").sum().reset_index()
     
@@ -78,7 +97,7 @@ def main():
                         st.number_input(f'{initMedia["Media Type"]} in €', value=initMedia["Amount"], disabled=True)
         with initROI:
             st.write("")
-            st.subheader(f'Initial ROI {(sum(grouped_optimized["Contribution"])/sum(grouped_optimized["Amount"])):,.2f}')
+            st.subheader(f'Initial ROI {(sum(grouped_previous["Contribution"])/sum(grouped_previous["Amount"])):,.2f}')
             
     st.header("Optimal Mix")
     optimAlloc, optimROI, incremColPerc, incremColVal = st.columns([8,2,2,2])
@@ -203,13 +222,15 @@ def main():
     with simulateCol:
         simulateButton = st.button("Simulate results")
         if simulateButton:            
-            st.session_state.finalSimulationData = pd.concat([df for df in st.session_state.simulation_data.values()]).reset_index(drop =True).drop(["Amount"], axis = 1)
-            st.session_state.simulationResults = st.session_state.finalSimulationData[["Media Type", "Media Channel", "Allocation", "New Amount", "roi", "confidence_int_inf_roi", "confidence_int_sup_roi"]]
-            st.session_state.simulationResults.rename({"New Amount" : "Amount"}, axis = 1, inplace = True)
-            st.session_state.simulationResults["Allocation"] = st.session_state.simulationResults["Amount"]/st.session_state.simulationResults["Amount"].sum()
-            st.session_state.simulationResults["Contribution"] = st.session_state.simulationResults["roi"]*st.session_state.simulationResults["Amount"]
-            st.session_state.simulationResults["Budget"] = "Simulated"
+            st.session_state.finalSimulationData = pd.concat([df for df in st.session_state.simulation_data.values()]).reset_index(drop =True).drop(["Amount"], axis = 1)[["Media Type", "Media Channel", "New Amount"]]
+            st.session_state.finalSimulationData = st.session_state.finalSimulationData.rename({"New Amount" : "Amount"}, axis = 1)
             
+            st.session_state.simulationResults = makeSimulation(filtered_data, 
+                                                                st.session_state.finalSimulationData, 
+                                                                st.session_state.target_scaler,
+                                                                st.session_state.media_scaler,
+                                                                st.session_state.model)
+    
     if "simulationResults" in st.session_state.keys():
         csv = convert_df(st.session_state.simulationResults)
         with downloadCol:
@@ -278,7 +299,7 @@ def main():
         
         with simROI:
             st.write("")
-            st.subheader(f'Optimal ROI {roi_simulation:,.2f}')
+            st.subheader(f'Simulated ROI {roi_simulation:,.2f}')
     
         with simColPerc:
             st.write("")

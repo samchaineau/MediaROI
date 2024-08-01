@@ -1,18 +1,26 @@
+import numpy as np
 import pandas as pd
+from lightweight_mmm import media_transforms
 
 def load_excel(file):
     excel_data = pd.read_excel(file, sheet_name=None)
     return excel_data
 
+def filter_data(df : pd.DataFrame,
+                    dates : list):
+    new_df = df.copy()
+    new_df["Date"] = pd.to_datetime(new_df["Date"], dayfirst=True)
+    new_df = new_df[new_df["Date"]>dates[0]]
+    new_df = new_df[new_df["Date"]<dates[1]]
+    return new_df
+    
 def preprocess_data(df : pd.DataFrame,
                     dates : list):
     new_df = df.copy()
     new_df.drop(["index"], axis = 1, inplace=True)
     to_keep = [c for c in new_df.columns if "Media" in c]+["Date"]
     new_df = new_df[to_keep]
-    new_df["Date"] = pd.to_datetime(new_df["Date"])
-    new_df = new_df[new_df["Date"]>pd.to_datetime(dates[0], format="%m-%Y")]
-    new_df = new_df[new_df["Date"]<pd.to_datetime(dates[1], format="%m-%Y")]
+    new_df = filter_data(new_df, dates)
     grouped_df = (new_df.drop("Date", axis = 1).sum()).T.reset_index(name="Amount").rename({"index": "Media"}, axis = 1)
     grouped_df["Media Type"] = [v.split("_")[1] for v in grouped_df["Media"]]
     grouped_df["Media Channel"] = [v.split("_")[2] for v in grouped_df["Media"]]
@@ -86,3 +94,28 @@ def compare_global_roi(dict_of_df : dict):
     compare_df.columns = ["Scenario", "ROI"]
     compare_df['Values'] = compare_df['ROI'].apply(lambda x: f'{x:.2f}')
     return compare_df
+
+
+def makeSimulation(raw_data_period : pd.DataFrame,
+                   budget_allocation : pd.DataFrame,
+                   target_scaler,
+                   media_scaler,
+                   model):
+    
+            simulationData = budget_allocation.copy()
+            simulationData["Media_var"] = ["Media_" +c["Media Type"]+"_"+c["Media Channel"]+"_€" if c["Media Channel"] not in ["Search", "Social", "Display"] else "Media_" +c["Media Type"]+"_€" for c in budget_allocation.to_dict(orient = "records")]
+            simulationRecords = simulationData[["Media_var", "Amount"]].set_index('Media_var')['Amount'].to_dict()
+            
+            data_to_test = raw_data_period[[c for c in raw_data_period.columns if "Media" in c]]
+            data_to_test = data_to_test/data_to_test.sum(axis = 0)         
+            for c in data_to_test.columns:
+                data_to_test[c] = data_to_test[c]*simulationRecords[c]
+            
+            data_to_test = data_to_test.to_numpy()
+            carryover_list = [media_transforms.carryover(media_scaler.transform(data_to_test), model.trace["ad_effect_retention_rate"][i], model.trace["peak_effect_delay"][i]) for i in range(model.trace["ad_effect_retention_rate"].shape[0])]
+            transformed_data_list = [media_transforms.apply_exponent_safe(data = carryover_list[i], exponent = model.trace["exponent"][i]) for i in range(model.trace["exponent"].shape[0])]
+            contribution_list = [model.trace["coef_media"][i] * transformed_data_list[i] for i in range(len(model.trace["coef_media"]))]
+            contributionSimulated = target_scaler.inverse_transform(np.array(contribution_list).mean(axis = 0))
+            contributionSimulated = pd.DataFrame(contributionSimulated, columns = [c for c in raw_data_period.columns if "Media" in c]).fillna(0).sum().reset_index(name = "Contribution").rename({"index" : "Media_var"}, axis = 1)
+            contributionSimulated = simulationData.merge(contributionSimulated, on = "Media_var", how = "left")
+            return contributionSimulated
