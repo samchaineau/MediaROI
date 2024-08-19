@@ -1,3 +1,5 @@
+jax
+numpyro==0.13.2
 numpy
 streamlit
 pandas
@@ -7,5 +9,3 @@ fpdf
 kaleido
 https://github.com/google/lightweight_mmm/blob/main/requirements/requirements.txt
 git+https://github.com/google/lightweight_mmm.git
-numpyro==0.13.2
-jax
