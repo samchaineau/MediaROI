@@ -1,6 +1,6 @@
 jax
 numpyro==0.13.2
-numpy
+numpy==1.24
 streamlit
 pandas
 plotly-express
