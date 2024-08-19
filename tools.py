@@ -39,7 +39,7 @@ def preprocess_budget(df: pd.DataFrame):
     
     optimized = new_df[new_df["Budget"] == "optimized_budget"].reset_index(drop = True)
     optimized["Allocation"] = optimized["Amount"]/optimized["Amount"].sum()
-    return previous.drop(["Budget", "Amount"], axis = 1), optimized.drop(["Budget", "Amount"], axis = 1)
+    return previous.drop("Budget", axis = 1), optimized.drop("Budget", axis = 1)
 
 def preprocess_roi(df: pd.DataFrame):
     new_df = df.copy()
@@ -96,8 +96,7 @@ def compare_global_roi(dict_of_df : dict):
     return compare_df
 
 
-def makeSimulation(raw_data_period : pd.DataFrame,
-                   budget_allocation : pd.DataFrame,
+def makeSimulation(budget_allocation : pd.DataFrame,
                    target_scaler,
                    media_scaler,
                    model):
@@ -106,8 +105,9 @@ def makeSimulation(raw_data_period : pd.DataFrame,
             simulationData["Media_var"] = ["Media_" +c["Media Type"]+"_"+c["Media Channel"]+"_€" if c["Media Channel"] not in ["Search", "Social", "Display"] else "Media_" +c["Media Type"]+"_€" for c in budget_allocation.to_dict(orient = "records")]
             simulationRecords = simulationData[["Media_var", "Amount"]].set_index('Media_var')['Amount'].to_dict()
             
-            data_to_test = raw_data_period[[c for c in raw_data_period.columns if "Media" in c]]
+            data_to_test = pd.DataFrame(np.ones((10, 29))/10, columns=list(simulationRecords.keys()))
             data_to_test = data_to_test/data_to_test.sum(axis = 0)         
+            
             for c in data_to_test.columns:
                 data_to_test[c] = data_to_test[c]*simulationRecords[c]
             
@@ -116,6 +116,25 @@ def makeSimulation(raw_data_period : pd.DataFrame,
             transformed_data_list = [media_transforms.apply_exponent_safe(data = carryover_list[i], exponent = model.trace["exponent"][i]) for i in range(model.trace["exponent"].shape[0])]
             contribution_list = [model.trace["coef_media"][i] * transformed_data_list[i] for i in range(len(model.trace["coef_media"]))]
             contributionSimulated = target_scaler.inverse_transform(np.array(contribution_list).mean(axis = 0))
-            contributionSimulated = pd.DataFrame(contributionSimulated, columns = [c for c in raw_data_period.columns if "Media" in c]).fillna(0).sum().reset_index(name = "Contribution").rename({"index" : "Media_var"}, axis = 1)
+            
+            contributionSimulated = pd.DataFrame(contributionSimulated, columns = list(simulationRecords.keys())).fillna(0).sum().reset_index(name = "Contribution").rename({"index" : "Media_var"}, axis = 1)
             contributionSimulated = simulationData.merge(contributionSimulated, on = "Media_var", how = "left")
             return contributionSimulated
+            
+def checkGlobalPred(budget_allocation : pd.DataFrame,
+                   target_scaler,
+                   media_scaler,
+                   model):
+            simulationData = budget_allocation.copy()
+            simulationData["Media_var"] = ["Media_" +c["Media Type"]+"_"+c["Media Channel"]+"_€" if c["Media Channel"] not in ["Search", "Social", "Display"] else "Media_" +c["Media Type"]+"_€" for c in budget_allocation.to_dict(orient = "records")]
+            simulationRecords = simulationData[["Media_var", "Amount"]].set_index('Media_var')['Amount'].to_dict()
+            
+            data_to_test = pd.DataFrame(np.ones((10, 29))/10, columns=list(simulationRecords.keys()))
+            
+            for c in data_to_test.columns:
+                data_to_test[c] = data_to_test[c]*simulationRecords[c]
+            
+            data_to_test = data_to_test.to_numpy()
+            transformed_data = media_scaler.transform(data_to_test)
+            raw_preds = model.predict(transformed_data, target_scaler = target_scaler)
+            return raw_preds.mean(axis = 0).sum()

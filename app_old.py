@@ -147,9 +147,7 @@ def main():
     with simulateCol:
         simulateButton = st.button("Simulate results")
         if simulateButton:
-            st.session_state.initialResults = st.session_state.initialBudget.merge(roi_values, how = "left", on = ["Media Type", "Media Channel"])[["Media Type", "Media Channel", "Amount", "Allocation", "roi"]]
-            st.session_state.initialResults.rename({"Amount" : "Investment", "Allocation" : "Allocation %"}, axis = 1, inplace = True)
-            st.session_state.initialResults["Contribution"] = st.session_state.initialResults["roi"]*st.session_state.initialResults["Investment"]
+            st.session_state.initialResults = 
             
             st.session_state.optimalResults = st.session_state.optimalBudget.merge(roi_values, how = "left", on = ["Media Type", "Media Channel"])[["Media Type", "Media Channel", "Amount", "Allocation", "roi"]]
             st.session_state.optimalResults.rename({"Amount" : "Investment", "Allocation" : "Allocation %"}, axis = 1, inplace = True)

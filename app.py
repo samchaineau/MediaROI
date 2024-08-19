@@ -3,8 +3,10 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 from datetime import datetime, timedelta
-from lightweight_mmm import utils, optimize_media, preprocessing, media_transforms
+from lightweight_mmm import utils, optimize_media, preprocessing, media_transforms, optimize_media
 import jax.numpy as jnp
+from fpdf import FPDF
+import kaleido
 
 from tools import *
 
@@ -32,6 +34,8 @@ def main():
     media_data_train = media_data_train.to_numpy()[:train_split, ...]
     target_train = excel_data["DATA"]['Ventes'].to_numpy(dtype='float32')[:train_split]
     
+    
+    
     if "model" not in st.session_state.keys():
         st.session_state.model = utils.load_model(file_path= "media_mix_model.pkl")
         st.session_state.media_scaler = preprocessing.CustomScaler(divide_operation=jnp.mean)
@@ -40,7 +44,6 @@ def main():
         st.session_state.target_scaler.fit_transform(target_train)
     
     mmm_results_data = load_excel("Resultats MMM pour simulateur - mediaROI - mai 2024.xlsx")
-    roi_values = preprocess_roi(mmm_results_data["mmm_results"])
 
     
     st.image("logo mediaROI.png")
@@ -48,91 +51,128 @@ def main():
     with st.container():
         startDateCol, endDateCol, _, percCol, _ = st.columns([2,2,2,3,4])
         
-        startDate = list(excel_data["DATA"]["Date"])[-21]
-        endDate = list(excel_data["DATA"]["Date"])[-9]
-        
         with percCol:
             usePerc = st.toggle("Use percentage for allocation", value=True)
-     
     
-    filtered_data = filter_data(excel_data["DATA"], [startDate, endDate])
-    raw_data = preprocess_data(excel_data["DATA"], [startDate, endDate])
+    previous_budget, optimized_budget = preprocess_budget(mmm_results_data["budget_optimization"])
     
-    optimized_budget, previous_budget = preprocess_budget(mmm_results_data["budget_optimization"])
-    
-    optimized_budget["Amount"] = optimized_budget["Allocation"]*raw_data["Amount"].sum()
-    optimized_budget = makeSimulation(filtered_data, 
-                                      optimized_budget,
+    optimized_budget = makeSimulation(optimized_budget,
                                       st.session_state.target_scaler,
                                       st.session_state.media_scaler,
                                       st.session_state.model)
     optimized_budget["Budget"] = "Optimal"
     grouped_optimized = optimized_budget[["Media Type", "Amount", "Allocation", "Contribution"]].groupby("Media Type").sum().reset_index()
     
-    previous_budget["Amount"] = previous_budget["Allocation"]*raw_data["Amount"].sum()
-    previous_budget = makeSimulation(filtered_data, 
-                                      previous_budget,
-                                      st.session_state.target_scaler,
-                                      st.session_state.media_scaler,
-                                      st.session_state.model)
+    previous_budget = makeSimulation(previous_budget,
+                                     st.session_state.target_scaler,
+                                     st.session_state.media_scaler,
+                                     st.session_state.model)
     previous_budget["Budget"] = "Initial"
     grouped_previous = previous_budget[["Media Type", "Amount", "Allocation", "Contribution"]].groupby("Media Type").sum().reset_index()
     
+    initialROI = (sum(grouped_previous["Contribution"])/sum(grouped_previous["Amount"]))
+    optimizedROI = (sum(grouped_optimized["Contribution"])/sum(grouped_optimized["Amount"]))
+    evolInitOptim = (optimizedROI/initialROI)-1
     incremVal = sum(grouped_optimized["Contribution"])-sum(grouped_previous["Contribution"])
-    incremPerc = (sum(grouped_optimized["Contribution"])/sum(grouped_previous["Contribution"]))-1
     
+    st.header("Mix Media Initial")
     
-    st.header("Initial Mix")
-    initAlloc, initROI, _, _ = st.columns([8,2,2,2])
+    initAlloc, initROI, _, _ = st.columns([9,2,2,2])
     initMedia =  grouped_previous.to_dict(orient = "records")
+    initMedia  = {v["Media Type"] : v for v in initMedia}
+    toDisplayMedia = ["TV", "OOH", "Radio", "Print", "Search", "Display", "VOL", "Social"]
+    
     with st.container():
         with initAlloc:
-            initMediaCol = st.columns(len(initMedia))
-            initMediaCol = list(zip(initMedia, initMediaCol))
-            for initMedia, pmediaCol in initMediaCol:
+            initMediaCol = st.columns(8)
+            initMediaCol = list(zip(toDisplayMedia, initMediaCol))
+            for mediaName, pmediaCol in initMediaCol:
                 with pmediaCol:
-                    if usePerc:
-                        st.number_input(f'Initial {initMedia["Media Type"]} in %', value=initMedia["Allocation"]*100, disabled=True)
+                    if mediaName in initMedia.keys():
+                        if usePerc:
+                            st.number_input(f'Initial {mediaName} in %', value=initMedia[mediaName]["Allocation"]*100, disabled=True)
+                        else:
+                            st.number_input(f'Initial {mediaName} in €', value=initMedia[mediaName]["Amount"], disabled=True)
                     else:
-                        st.number_input(f'{initMedia["Media Type"]} in €', value=initMedia["Amount"], disabled=True)
+                        if usePerc:
+                            st.number_input(f'Initial {mediaName} in %', value=0, disabled=True)
+                        else:
+                            st.number_input(f'Initial {mediaName} in €', value=0, disabled=True)
+
         with initROI:
-            st.write("")
-            st.subheader(f'Initial ROI {(sum(grouped_previous["Contribution"])/sum(grouped_previous["Amount"])):,.2f}')
+            st.markdown(
+                        """
+                        <div style="text-align: center;">
+                            <h3>ROI</h3>
+                            <h3>{:.2f}</h3>
+                        </div>
+                        """.format(initialROI),
+                        unsafe_allow_html=True
+                        )
             
-    st.header("Optimal Mix")
-    optimAlloc, optimROI, incremColPerc, incremColVal = st.columns([8,2,2,2])
+    st.header("Mix Media Optimal")
+    optimAlloc, optimROI, evolROICol, incremColVal = st.columns([9,2,2,2])
     optimMedia =  grouped_optimized.to_dict(orient = "records")
+    optimMedia  = {v["Media Type"] : v for v in optimMedia}
+    
     with st.container():
         with optimAlloc:
-            optimMediaCol = st.columns(len(optimMedia))
-            optimMediaCol = list(zip(optimMedia, optimMediaCol))
-            for optimMedia, omediaCol in optimMediaCol:
+            optimMediaCol = st.columns(8)
+            optimMediaCol = list(zip(toDisplayMedia, optimMediaCol))
+            for mediaName, omediaCol in optimMediaCol:
                 with omediaCol:
-                    if usePerc:
-                        st.number_input(f'Initial {optimMedia["Media Type"]} in %', value=optimMedia["Allocation"]*100, disabled=True)
+                    if mediaName in optimMedia.keys():
+                        if usePerc:
+                            st.number_input(f'Optimal {mediaName} in %', value=optimMedia[mediaName]["Allocation"]*100, disabled=True)
+                        else:
+                            st.number_input(f'Optimal {mediaName} in €', value=optimMedia[mediaName]["Amount"], disabled=True)
                     else:
-                        st.number_input(f'{optimMedia["Media Type"]} in €', value=optimMedia["Amount"], disabled=True)
+                        if usePerc:
+                            st.number_input(f'Optimal {mediaName} in %', value=0, disabled=True)
+                        else:
+                            st.number_input(f'Optimal {mediaName} in €', value=0, disabled=True)
         with optimROI:
-            st.write("")
-            st.subheader(f'Optimal ROI {(sum(grouped_optimized["Contribution"])/sum(grouped_optimized["Amount"])):,.2f}')
+            st.markdown(
+                        """
+                        <div style="text-align: center;">
+                            <h3>ROI</h3>
+                            <h3>{:.2f}</h3>
+                        </div>
+                        """.format(optimizedROI),
+                        unsafe_allow_html=True
+                        )
         
-        with incremColPerc:
-            st.write("")
-            st.subheader(f'Incremental: {incremPerc:,.2f} %')
+        with evolROICol:
+            st.markdown(
+                        """
+                        <div style="text-align: center;">
+                            <h3>ROI evolution</h3>
+                            <h3>{:.2f} %</h3>
+                        </div>
+                        """.format(evolInitOptim),
+                        unsafe_allow_html=True
+                        )
         
         with incremColVal:
-            st.write("")
-            st.subheader(f'{incremVal:,.2f} €')
+            st.markdown(
+                        """
+                        <div style="text-align: center;">
+                            <h3>Incremental</h3>
+                            <h3>{:.2f} (€)</h3>
+                        </div>
+                        """.format(incremVal),
+                        unsafe_allow_html=True
+                        )
     
     
-    st.title("Simulations")
+    st.title("Simulateur Mix Media")
     optimCol, _, _ = st.columns([3,5,3])
     
     with optimCol:
         useOptimized = st.toggle("Use optimized budget")
     
     with st.container():
-        simAlloc, simROI, simColPerc, simmColVal = st.columns([8,2,2,2])
+        simAlloc, simROI, evolSimROI, simColVal = st.columns([9,2,2,2])
         with simAlloc:
             if useOptimized:
                 if "totalBudget" not in st.session_state.keys():
@@ -147,19 +187,25 @@ def main():
                 else:
                     totalBudget = st.number_input("Total budget to simulate", value = st.session_state.totalBudget)
                 start_amount = get_budget(totalBudget, previous_budget)
-                grouped_start_amount = start_amount.drop(["Media Channel", "Amount"], axis = 1).groupby("Media Type").sum().reset_index()
+                grouped_start_amount = start_amount.drop(["Media Channel", "Budget", "Amount"], axis = 1).groupby("Media Type").sum().reset_index()
             
-            media_cols_pairs = list(zip(list(grouped_start_amount["Media Type"]), st.columns(grouped_start_amount.shape[0])))
+            media_cols_pairs = list(zip(toDisplayMedia, st.columns(8)))
             mediaCol = {e[0] : {"col" : e[1]} for e in media_cols_pairs}
             
             for media, elements in mediaCol.items():
                 with elements["col"]:
-                    if usePerc:
-                        elements["input"] = st.number_input(f"{media} in %", value=access_type_budget(grouped_start_amount, media, "Allocation"))
-                        elements["data"] = get_channel_allocation(start_amount, elements["input"]*totalBudget/100, media)
+                    if media in list(grouped_start_amount["Media Type"]):
+                        if usePerc:
+                            elements["input"] = st.number_input(f"{media} in %", value=access_type_budget(grouped_start_amount, media, "Allocation"))
+                            elements["data"] = get_channel_allocation(start_amount, elements["input"]*totalBudget/100, media)
+                        else:
+                            elements["input"] = st.number_input(f"{media} in Euros", value=access_type_budget(grouped_start_amount, media, "New Amount"))
+                            elements["data"] = get_channel_allocation(start_amount, elements["input"], media).reset_index(drop=True)
                     else:
-                        elements["input"] = st.number_input(f"{media} in Euros", value=access_type_budget(grouped_start_amount, media, "New Amount"))
-                        elements["data"] = get_channel_allocation(start_amount, elements["input"], media).reset_index(drop=True)        
+                        if usePerc:
+                            elements["input"] = st.number_input(f"{media} in %", value=0, disabled = True)
+                        else:
+                            elements["input"] = st.number_input(f"{media} in Euros", value=0, disabled = True)
     
     saveGlobal, _ = st.columns([4, 1])
     with saveGlobal:
@@ -179,7 +225,7 @@ def main():
             st.warning(f"Total budget allocation is different from 100% (current total : {round(currentAll, 2)}%). Please check allocation.")
     
     if "simulation_data" not in st.session_state.keys():    
-        st.session_state.simulation_data = {k: v["data"] for k,v in mediaCol.items()}
+        st.session_state.simulation_data = {k: v["data"] for k,v in mediaCol.items() if "data" in v.keys()}
     
     budgetExpander = st.expander("Advanced settings")
     
@@ -217,23 +263,26 @@ def main():
             if saveButtonChannel:
                 st.session_state.simulation_data[typeSelector] = saveTypeBudget(st.session_state.simulation_data[typeSelector], st.session_state.channel_budget, usePerc=useAdvPerc, budget=budget_sum)
     
-    _, downloadCol, simulateCol = st.columns([4, 1, 1])
+    _, downloadExcelCol, downloadPDFCol, simulateCol = st.columns([4, 1, 1, 1])
     
     with simulateCol:
         simulateButton = st.button("Simulate results")
         if simulateButton:            
             st.session_state.finalSimulationData = pd.concat([df for df in st.session_state.simulation_data.values()]).reset_index(drop =True).drop(["Amount"], axis = 1)[["Media Type", "Media Channel", "New Amount"]]
             st.session_state.finalSimulationData = st.session_state.finalSimulationData.rename({"New Amount" : "Amount"}, axis = 1)
+            st.session_state.finalSimulationData = optimized_budget[["Media Type", "Media Channel"]].merge(st.session_state.finalSimulationData, on = ["Media Type", "Media Channel"], how = "left")
             
-            st.session_state.simulationResults = makeSimulation(filtered_data, 
-                                                                st.session_state.finalSimulationData, 
+            st.session_state.simulationResults = makeSimulation(st.session_state.finalSimulationData, 
                                                                 st.session_state.target_scaler,
                                                                 st.session_state.media_scaler,
                                                                 st.session_state.model)
+            
+            st.session_state.simulationResults["Budget"] = "Simulated"
+            st.session_state.simulationResults["Allocation"] = st.session_state.simulationResults["Amount"]/st.session_state.simulationResults["Amount"].sum()
     
     if "simulationResults" in st.session_state.keys():
         csv = convert_df(st.session_state.simulationResults)
-        with downloadCol:
+        with downloadExcelCol:
             st.download_button(
                 label="Download simulations",
                 data=csv,
@@ -242,9 +291,9 @@ def main():
         
         roiTab, contTab, budTab = st.tabs(["ROI", "Contribution", "Budget"])
         
-        
         init_optim_df = pd.concat([optimized_budget, previous_budget, st.session_state.simulationResults]).reset_index(drop=True)
         
+        figs = []
         with budTab:
             comparison_df = init_optim_df[["Media Type", "Budget", "Amount"]]
             comparison_df = comparison_df.groupby(["Media Type", "Budget"]).sum().reset_index()
@@ -259,9 +308,9 @@ def main():
                             labels = {"Amount" : "Investment (k Euros)"},
                             color_discrete_sequence=["#000000", "#070996", "#19ACBF"])
             fig.update_traces(textposition='outside')
+            figs.append(fig)
             st.plotly_chart(fig)
-                
-            
+        
         with contTab:
             comparison_df = init_optim_df[["Media Type", "Budget", "Contribution"]]
             comparison_df = comparison_df.groupby(["Media Type", "Budget"]).sum().reset_index()
@@ -276,6 +325,7 @@ def main():
                             labels = {"Contribution" : "Contribution (k Euros)"}, 
                             color_discrete_sequence=["#000000", "#070996", "#19ACBF"])
             fig.update_traces(textposition='outside')
+            figs.append(fig)
             st.plotly_chart(fig)
                 
         with roiTab:
@@ -291,23 +341,73 @@ def main():
                             barmode='group',
                             color_discrete_sequence=["#000000", "#070996", "#19ACBF"])
             fig.update_traces(textposition='outside')
+            figs.append(fig)
             st.plotly_chart(fig)
+        
+        image_files = ['plot1.png', 'plot2.png', 'plot3.png']
+        
+        for fig, filename in zip(figs, image_files):
+            fig.write_image(filename)
             
+        def make_pdf(image_files, output_filename):
+            pdf = FPDF(orientation='L', unit='mm', format='A4')
+            pdf.set_auto_page_break(0)
+            for image_file in image_files:
+                pdf.add_page()
+                pdf.image(image_file, x=10, y=10, w=277)
+            pdf.output(output_filename)
+
+
+        pdf_filename = 'simulateur_rapport.pdf'
+        make_pdf(image_files, pdf_filename)
+        
+        with open("simulateur_rapport.pdf", "rb") as pdf_file:
+            document = pdf_file.read()
+        
+        with downloadPDFCol:
+            st.download_button(
+                label="Download PDF",
+                data=document,
+                file_name='simulateur_rapport.pdf',
+                mime='application/pdf'
+            )
+        
         roi_simulation = (sum(st.session_state.simulationResults["Contribution"])/sum(st.session_state.simulationResults["Amount"]))
-        increm_simulation_perc = (sum(st.session_state.simulationResults["Contribution"])/sum(grouped_previous["Contribution"]))-1
+        roi_evol_simulation_perc = (roi_simulation/initialROI)-1
         increm_simulation_val = sum(st.session_state.simulationResults["Contribution"]) - sum(grouped_previous["Contribution"])
         
         with simROI:
-            st.write("")
-            st.subheader(f'Simulated ROI {roi_simulation:,.2f}')
-    
-        with simColPerc:
-            st.write("")
-            st.subheader(f'Incremental: {increm_simulation_perc:,.2f} %')
+            st.markdown(
+                        """
+                        <div style="text-align: center;">
+                            <h3>ROI</h3>
+                            <h3>{:.2f} %</h3>
+                        </div>
+                        """.format(roi_simulation),
+                        unsafe_allow_html=True
+                        )
+            
+        with evolSimROI:
+            st.markdown(
+                        """
+                        <div style="text-align: center;">
+                            <h3>ROI evolution</h3>
+                            <h3>{:.2f} %</h3>
+                        </div>
+                        """.format(roi_evol_simulation_perc),
+                        unsafe_allow_html=True
+                        )
         
-        with simmColVal:
-            st.write("")
-            st.subheader(f'{increm_simulation_val:,.2f} €')
+        with simColVal:
+            st.markdown(
+                        """
+                        <div style="text-align: center;">
+                            <h3>Incremental</h3>
+                            <h3>{:.2f} %</h3>
+                        </div>
+                        """.format(increm_simulation_val),
+                        unsafe_allow_html=True
+                        )
     
         
          
