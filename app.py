@@ -158,7 +158,7 @@ def main():
                         """
                         <div style="text-align: center;">
                             <h3>Incremental</h3>
-                            <h3>{:.2f} (€)</h3>
+                            <h3>{:.0f} (€)</h3>
                         </div>
                         """.format(incremVal),
                         unsafe_allow_html=True
@@ -212,7 +212,7 @@ def main():
         saveButtonGlobal = st.button("Save budget")
         
         if saveButtonGlobal:
-            st.session_state.simulation_data = {k: v["data"] for k,v in mediaCol.items()}
+            st.session_state.simulation_data = {k: v["data"] for k,v in mediaCol.items() if "data" in v.keys()}
             st.session_state.totalBudget = totalBudget
     
     if usePerc==False:
@@ -381,7 +381,7 @@ def main():
                         """
                         <div style="text-align: center;">
                             <h3>ROI</h3>
-                            <h3>{:.2f} %</h3>
+                            <h3>{:.2f}</h3>
                         </div>
                         """.format(roi_simulation),
                         unsafe_allow_html=True
@@ -403,7 +403,7 @@ def main():
                         """
                         <div style="text-align: center;">
                             <h3>Incremental</h3>
-                            <h3>{:.2f} %</h3>
+                            <h3>{:.0f} (€)</h3>
                         </div>
                         """.format(increm_simulation_val),
                         unsafe_allow_html=True
