@@ -4,4 +4,4 @@ plotly-express
 openpyxl
 fpdf
 kaleido
-git+https://github.com/google/lightweight_mmm.git@master#egg=lightweight_mmm
+git+https://github.com/google/lightweight_mmm.git
