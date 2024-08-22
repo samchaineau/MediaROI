@@ -12,6 +12,10 @@ from tools import *
 
 st.set_page_config(layout="wide")
 
+def load_css(file_path):
+    with open(file_path, "r") as file:
+        css = file.read()
+        st.markdown(f'<style>{css}</style>', unsafe_allow_html=True)
 
 def reset_channel_budget():
     st.session_state.channel_budget = {}
@@ -28,6 +32,7 @@ def get_months(df : pd.DataFrame):
     return list(unique_months)
 
 def main():
+    load_css("mediaroi-charte.css")
     excel_data = load_excel("Raw_Data_mediaROI_simulateur - mai 2024.xlsx")
     train_split = round(0.9*excel_data["DATA"].shape[0])
     media_data_train = excel_data["DATA"][[c for c in excel_data["DATA"].columns if "Media_" in c]]
@@ -44,15 +49,26 @@ def main():
         st.session_state.target_scaler.fit_transform(target_train)
     
     mmm_results_data = load_excel("Resultats MMM pour simulateur - mediaROI - mai 2024.xlsx")
-
     
-    st.image("logo mediaROI.png")
+    st.markdown(
+        """
+        <style>
+        .main {
+            max-width: 1132px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True)
     
-    with st.container():
-        startDateCol, endDateCol, _, percCol, _ = st.columns([2,2,2,3,4])
-        
-        with percCol:
-            usePerc = st.toggle("Use percentage for allocation", value=True)
+    st.markdown(
+        """
+        <style>
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        </style>
+        """,
+        unsafe_allow_html=True)
     
     previous_budget, optimized_budget = preprocess_budget(mmm_results_data["budget_optimization"])
     
@@ -75,94 +91,182 @@ def main():
     evolInitOptim = (optimizedROI/initialROI)-1
     incremVal = sum(grouped_optimized["Contribution"])-sum(grouped_previous["Contribution"])
     
-    st.header("Mix Media Initial")
+    with st.container():
+        firstheader, _, percCol, _ = st.columns([8, 2, 8, 6])
     
-    initAlloc, initROI, _, _ = st.columns([9,2,2,2])
+        with firstheader:
+            st.header("Mix Media Initial")
+        
+        with percCol:
+            st.write("")
+            usePerc = st.toggle("Use % for allocation", value=True)
+    
+    initAlloc, initROI, _, _ = st.columns([10,2,3,3])
     initMedia =  grouped_previous.to_dict(orient = "records")
     initMedia  = {v["Media Type"] : v for v in initMedia}
     toDisplayMedia = ["TV", "OOH", "Radio", "Print", "Search", "Display", "VOL", "Social"]
     
-    with st.container():
-        with initAlloc:
-            initMediaCol = st.columns(8)
-            initMediaCol = list(zip(toDisplayMedia, initMediaCol))
-            for mediaName, pmediaCol in initMediaCol:
+    with initAlloc:
+        with st.container():
+            initMediaCol1 = st.columns(4)
+            initMediaCol1 = list(zip(toDisplayMedia[:4], initMediaCol1))
+            for mediaName, pmediaCol in initMediaCol1:
                 with pmediaCol:
                     if mediaName in initMedia.keys():
                         if usePerc:
-                            st.number_input(f'Initial {mediaName} in %', value=initMedia[mediaName]["Allocation"]*100, disabled=True)
+                            st.number_input(f'Init. {mediaName} in %', value=initMedia[mediaName]["Allocation"]*100, disabled=True)
                         else:
-                            st.number_input(f'Initial {mediaName} in €', value=initMedia[mediaName]["Amount"], disabled=True)
+                            st.number_input(f'Init. {mediaName} in €', value=initMedia[mediaName]["Amount"], disabled=True)
                     else:
                         if usePerc:
-                            st.number_input(f'Initial {mediaName} in %', value=0, disabled=True)
+                            st.number_input(f'Init. {mediaName} in %', value=0, disabled=True)
                         else:
-                            st.number_input(f'Initial {mediaName} in €', value=0, disabled=True)
-
+                            st.number_input(f'Init. {mediaName} in €', value=0, disabled=True)
+        
+        with st.container():
+            initMediaCol2 = st.columns(4)
+            initMediaCol2 = list(zip(toDisplayMedia[4:], initMediaCol2))
+            for mediaName, pmediaCol in initMediaCol2:
+                with pmediaCol:
+                    if mediaName in initMedia.keys():
+                        if usePerc:
+                            st.number_input(f'Init. {mediaName} in %', value=initMedia[mediaName]["Allocation"]*100, disabled=True)
+                        else:
+                            st.number_input(f'Init. {mediaName} in €', value=initMedia[mediaName]["Amount"], disabled=True)
+                    else:
+                        if usePerc:
+                            st.number_input(f'Init. {mediaName} in %', value=0, disabled=True)
+                        else:
+                            st.number_input(f'Init. {mediaName} in €', value=0, disabled=True)
+                            
         with initROI:
-            st.markdown(
-                        """
-                        <div style="text-align: center;">
-                            <h3>ROI</h3>
-                            <h3>{:.2f}</h3>
+            with st.container():
+                st.empty()
+            with st.container():
+                st.write("")
+                st.markdown(
+                        f"""
+                        <div style="
+                            width: 100%;
+                            text-align: center; 
+                            border: 2px solid black; 
+                            padding: 0px;
+                            border-radius: 10px; 
+                            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+                        ">
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">ROI</span>
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">{initialROI:.2f}</span>
                         </div>
-                        """.format(initialROI),
+                        """,
                         unsafe_allow_html=True
-                        )
+                    )
             
     st.header("Mix Media Optimal")
-    optimAlloc, optimROI, evolROICol, incremColVal = st.columns([9,2,2,2])
+    optimAlloc, optimROI, evolROICol, incremColVal = st.columns([10,2,3,3])
     optimMedia =  grouped_optimized.to_dict(orient = "records")
     optimMedia  = {v["Media Type"] : v for v in optimMedia}
     
-    with st.container():
-        with optimAlloc:
-            optimMediaCol = st.columns(8)
-            optimMediaCol = list(zip(toDisplayMedia, optimMediaCol))
-            for mediaName, omediaCol in optimMediaCol:
+    with optimAlloc:
+        with st.container():
+            optimMediaCol1 = st.columns(4)
+            optimMediaCol1 = list(zip(toDisplayMedia[:4], optimMediaCol1))
+            for mediaName, omediaCol in optimMediaCol1:
                 with omediaCol:
                     if mediaName in optimMedia.keys():
                         if usePerc:
-                            st.number_input(f'Optimal {mediaName} in %', value=optimMedia[mediaName]["Allocation"]*100, disabled=True)
+                            st.number_input(f'Opt. {mediaName} in %', value=optimMedia[mediaName]["Allocation"]*100, disabled=True)
                         else:
-                            st.number_input(f'Optimal {mediaName} in €', value=optimMedia[mediaName]["Amount"], disabled=True)
+                            st.number_input(f'Opt. {mediaName} in €', value=optimMedia[mediaName]["Amount"], disabled=True)
                     else:
                         if usePerc:
-                            st.number_input(f'Optimal {mediaName} in %', value=0, disabled=True)
+                            st.number_input(f'Opt. {mediaName} in %', value=0, disabled=True)
                         else:
-                            st.number_input(f'Optimal {mediaName} in €', value=0, disabled=True)
+                            st.number_input(f'Opt. {mediaName} in €', value=0, disabled=True)
+
+        with st.container():
+            optimMediaCol2 = st.columns(4)
+            optimMediaCol2 = list(zip(toDisplayMedia[4:], optimMediaCol2))
+            for mediaName, omediaCol in optimMediaCol2:
+                with omediaCol:
+                    if mediaName in optimMedia.keys():
+                        if usePerc:
+                            st.number_input(f'Opt. {mediaName} in %', value=optimMedia[mediaName]["Allocation"]*100, disabled=True)
+                        else:
+                            st.number_input(f'Opt. {mediaName} in €', value=optimMedia[mediaName]["Amount"], disabled=True)
+                    else:
+                        if usePerc:
+                            st.number_input(f'Opt. {mediaName} in %', value=0, disabled=True)
+                        else:
+                            st.number_input(f'Opt. {mediaName} in €', value=0, disabled=True)
+        
         with optimROI:
-            st.markdown(
-                        """
-                        <div style="text-align: center;">
-                            <h3>ROI</h3>
-                            <h3>{:.2f}</h3>
+            with st.container():
+                st.empty()
+            with st.container():
+                st.write("")
+                st.markdown(
+                        f"""
+                        <div style="
+                            color: #070996;
+                            width: 100%;
+                            text-align: center; 
+                            border: 2px solid black; 
+                            padding: 0px; 
+                            border-radius: 10px; 
+                            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+                        ">
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">ROI</span>
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">{optimizedROI:.2f}</span>
                         </div>
-                        """.format(optimizedROI),
+                        """,
                         unsafe_allow_html=True
-                        )
+                    )
         
         with evolROICol:
-            st.markdown(
-                        """
-                        <div style="text-align: center;">
-                            <h3>ROI evolution</h3>
-                            <h3>{:.2f} %</h3>
+            with st.container():
+                st.empty()
+            with st.container():
+                st.write("")
+                st.markdown(
+                        f"""
+                        <div style="
+                            color: #070996;
+                            width: 100%;
+                            text-align: center; 
+                            border: 2px solid black; 
+                            padding: 0px; 
+                            border-radius: 10px; 
+                            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+                        ">
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">Effectiveness</span>
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">{evolInitOptim:.2f} %</span>
                         </div>
-                        """.format(evolInitOptim),
+                        """,
                         unsafe_allow_html=True
-                        )
+                    )
         
         with incremColVal:
-            st.markdown(
-                        """
-                        <div style="text-align: center;">
-                            <h3>Incremental</h3>
-                            <h3>{:.0f} (€)</h3>
+            with st.container():
+                st.empty()
+            with st.container():
+                st.write("")
+                st.markdown(
+                        f"""
+                        <div style="
+                            color: #070996;
+                            width: 100%;
+                            text-align: center; 
+                            border: 2px solid black; 
+                            padding: 0px; 
+                            border-radius: 10px; 
+                            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+                        ">
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">Incremental</span>
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">{incremVal:.0f} (€)</span>
                         </div>
-                        """.format(incremVal),
+                        """,
                         unsafe_allow_html=True
-                        )
+                    )
     
     
     st.title("Simulateur Mix Media")
@@ -170,10 +274,10 @@ def main():
     
     with optimCol:
         useOptimized = st.toggle("Use optimized budget")
-    
+        
     with st.container():
-        simAlloc, simROI, evolSimROI, simColVal = st.columns([9,2,2,2])
-        with simAlloc:
+        simBudg, _ = st.columns([8,8])
+        with simBudg:
             if useOptimized:
                 if "totalBudget" not in st.session_state.keys():
                     totalBudget = st.number_input("Total budget to simulate", value = optimized_budget["Amount"].sum())
@@ -188,24 +292,49 @@ def main():
                     totalBudget = st.number_input("Total budget to simulate", value = st.session_state.totalBudget)
                 start_amount = get_budget(totalBudget, previous_budget)
                 grouped_start_amount = start_amount.drop(["Media Channel", "Budget", "Amount"], axis = 1).groupby("Media Type").sum().reset_index()
+        
+    with st.container():
+        simAlloc, simROI, evolSimROI, simColVal = st.columns([10,2,3,3])
+        with simAlloc:
+            media_cols_pairs1 = list(zip(toDisplayMedia[:4], st.columns(4)))
+            mediaCol1 = {e[0] : {"col" : e[1]} for e in media_cols_pairs1}
             
-            media_cols_pairs = list(zip(toDisplayMedia, st.columns(8)))
-            mediaCol = {e[0] : {"col" : e[1]} for e in media_cols_pairs}
+            media_cols_pairs2 = list(zip(toDisplayMedia[4:], st.columns(4)))
+            mediaCol2 = {e[0] : {"col" : e[1]} for e in media_cols_pairs2}
             
-            for media, elements in mediaCol.items():
-                with elements["col"]:
-                    if media in list(grouped_start_amount["Media Type"]):
-                        if usePerc:
-                            elements["input"] = st.number_input(f"{media} in %", value=access_type_budget(grouped_start_amount, media, "Allocation"))
-                            elements["data"] = get_channel_allocation(start_amount, elements["input"]*totalBudget/100, media)
+            with st.container():
+                for media, elements in mediaCol1.items():
+                    with elements["col"]:
+                        if media in list(grouped_start_amount["Media Type"]):
+                            if usePerc:
+                                elements["input"] = st.number_input(f"{media} in %", value=access_type_budget(grouped_start_amount, media, "Allocation"))
+                                elements["data"] = get_channel_allocation(start_amount, elements["input"]*totalBudget/100, media)
+                            else:
+                                elements["input"] = st.number_input(f"{media} in Euros", value=access_type_budget(grouped_start_amount, media, "New Amount"))
+                                elements["data"] = get_channel_allocation(start_amount, elements["input"], media).reset_index(drop=True)
                         else:
-                            elements["input"] = st.number_input(f"{media} in Euros", value=access_type_budget(grouped_start_amount, media, "New Amount"))
-                            elements["data"] = get_channel_allocation(start_amount, elements["input"], media).reset_index(drop=True)
-                    else:
-                        if usePerc:
-                            elements["input"] = st.number_input(f"{media} in %", value=0, disabled = True)
+                            if usePerc:
+                                elements["input"] = st.number_input(f"{media} in %", value=0, disabled = True)
+                            else:
+                                elements["input"] = st.number_input(f"{media} in Euros", value=0, disabled = True)
+            
+            with st.container():
+                for media, elements in mediaCol2.items():
+                    with elements["col"]:
+                        if media in list(grouped_start_amount["Media Type"]):
+                            if usePerc:
+                                elements["input"] = st.number_input(f"{media} in %", value=access_type_budget(grouped_start_amount, media, "Allocation"))
+                                elements["data"] = get_channel_allocation(start_amount, elements["input"]*totalBudget/100, media)
+                            else:
+                                elements["input"] = st.number_input(f"{media} in Euros", value=access_type_budget(grouped_start_amount, media, "New Amount"))
+                                elements["data"] = get_channel_allocation(start_amount, elements["input"], media).reset_index(drop=True)
                         else:
-                            elements["input"] = st.number_input(f"{media} in Euros", value=0, disabled = True)
+                            if usePerc:
+                                elements["input"] = st.number_input(f"{media} in %", value=0, disabled = True)
+                            else:
+                                elements["input"] = st.number_input(f"{media} in Euros", value=0, disabled = True)
+    
+    mediaCol = {k : v for k,v in list(mediaCol1.items())+list(mediaCol2.items())}
     
     saveGlobal, _ = st.columns([4, 1])
     with saveGlobal:
@@ -263,7 +392,7 @@ def main():
             if saveButtonChannel:
                 st.session_state.simulation_data[typeSelector] = saveTypeBudget(st.session_state.simulation_data[typeSelector], st.session_state.channel_budget, usePerc=useAdvPerc, budget=budget_sum)
     
-    _, downloadExcelCol, downloadPDFCol, simulateCol = st.columns([4, 1, 1, 1])
+    _, downloadExcelCol, downloadPDFCol, simulateCol = st.columns([6, 2, 2, 2])
     
     with simulateCol:
         simulateButton = st.button("Simulate results")
@@ -284,7 +413,7 @@ def main():
         csv = convert_df(st.session_state.simulationResults)
         with downloadExcelCol:
             st.download_button(
-                label="Download simulations",
+                label="Download data",
                 data=csv,
                 file_name="simulation_df.csv",
                 mime="text/csv")
@@ -377,37 +506,73 @@ def main():
         increm_simulation_val = sum(st.session_state.simulationResults["Contribution"]) - sum(grouped_previous["Contribution"])
         
         with simROI:
-            st.markdown(
-                        """
-                        <div style="text-align: center;">
-                            <h3>ROI</h3>
-                            <h3>{:.2f}</h3>
+            with st.container():
+                st.empty()
+            with st.container():
+                st.write("")
+                st.markdown(
+                        f"""
+                        <div style="
+                            color: #19acbf;
+                            width: 100%;
+                            text-align: center; 
+                            border: 2px solid black; 
+                            padding: 0px; 
+                            border-radius: 10px; 
+                            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+                        ">
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">ROI</span>
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">{roi_simulation:.2f}</span>
                         </div>
-                        """.format(roi_simulation),
+                        """,
                         unsafe_allow_html=True
-                        )
+                    )
             
         with evolSimROI:
-            st.markdown(
-                        """
-                        <div style="text-align: center;">
-                            <h3>ROI evolution</h3>
-                            <h3>{:.2f} %</h3>
+            with st.container():
+                st.empty()
+            with st.container():
+                st.write("")
+                st.markdown(
+                        f"""
+                        <div style="
+                            color: #19acbf;
+                            width: 100%;
+                            text-align: center; 
+                            border: 2px solid black; 
+                            padding: 0px; 
+                            border-radius: 10px; 
+                            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+                        ">
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">Effectiveness</span>
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">{roi_evol_simulation_perc:.2f} (%)</span>
                         </div>
-                        """.format(roi_evol_simulation_perc),
+                        """,
                         unsafe_allow_html=True
-                        )
+                    )
         
         with simColVal:
-            st.markdown(
-                        """
-                        <div style="text-align: center;">
-                            <h3>Incremental</h3>
-                            <h3>{:.0f} (€)</h3>
+            with st.container():
+                st.empty()
+            with st.container():
+                st.write("")
+                st.markdown(
+                        f"""
+                        <div style="
+                            color: #19acbf;
+                            width: 100%;
+                            text-align: center; 
+                            border: 2px solid black; 
+                            padding: 0px; 
+                            border-radius: 10px; 
+                            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+                        ">
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">Incremental</span>
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">{increm_simulation_val:.0f} (€)</span>
                         </div>
-                        """.format(increm_simulation_val),
+                        """,
                         unsafe_allow_html=True
-                        )
+                    )
     
         
          
