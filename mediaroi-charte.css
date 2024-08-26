@@ -62,6 +62,14 @@ h4
 	line-height: 140%;
 }
 
+.main {
+    max-width: 1132px;
+}
+
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+
 
 /* ------ colors ------ */
 

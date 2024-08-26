@@ -6,7 +6,9 @@ from datetime import datetime, timedelta
 from lightweight_mmm import utils, optimize_media, preprocessing, media_transforms, optimize_media
 import jax.numpy as jnp
 from fpdf import FPDF
-import kaleido
+
+def format_currency(amount):
+    return '{:,.0f} €'.format(amount).replace(",", " ")
 
 from tools import *
 
@@ -49,26 +51,6 @@ def main():
         st.session_state.target_scaler.fit_transform(target_train)
     
     mmm_results_data = load_excel("Resultats MMM pour simulateur - mediaROI - mai 2024.xlsx")
-    
-    st.markdown(
-        """
-        <style>
-        .main {
-            max-width: 1132px;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True)
-    
-    st.markdown(
-        """
-        <style>
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        header {visibility: hidden;}
-        </style>
-        """,
-        unsafe_allow_html=True)
     
     previous_budget, optimized_budget = preprocess_budget(mmm_results_data["budget_optimization"])
     
@@ -239,7 +221,7 @@ def main():
                             box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
                         ">
                             <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">Effectiveness</span>
-                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">{evolInitOptim:.2f} %</span>
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">{(evolInitOptim*100):.2f} %</span>
                         </div>
                         """,
                         unsafe_allow_html=True
@@ -262,7 +244,7 @@ def main():
                             box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
                         ">
                             <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">Incremental</span>
-                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">{incremVal:.0f} (€)</span>
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">{format_currency(incremVal)}</span>
                         </div>
                         """,
                         unsafe_allow_html=True
@@ -545,7 +527,7 @@ def main():
                             box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
                         ">
                             <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">Effectiveness</span>
-                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">{roi_evol_simulation_perc:.2f} (%)</span>
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">{(roi_evol_simulation_perc*100):.2f} (%)</span>
                         </div>
                         """,
                         unsafe_allow_html=True
@@ -568,14 +550,11 @@ def main():
                             box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
                         ">
                             <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">Incremental</span>
-                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">{increm_simulation_val:.0f} (€)</span>
+                            <span style="display: block; font-size: 20px; font-weight: bold; margin: 0; padding: 10px 0;">{format_currency(increm_simulation_val)}</span>
                         </div>
                         """,
                         unsafe_allow_html=True
                     )
-    
-        
-         
-        
+
 if __name__ == "__main__":
     main()
