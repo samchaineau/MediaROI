@@ -149,6 +149,15 @@ def main():
         "SOCIAL",
     ]
 
+    if len([m for m in initMedia.keys() if m not in toDisplayMedia]) > 1:
+        st.warning(
+            "Variables in files don't match taxonomy. Please make sure format are respected. Error variables are :"
+        )
+        st.write([m for m in initMedia.keys() if m not in toDisplayMedia[:4]])
+        err1 = 1
+    else:
+        err1 = 0
+
     # Display allocation inputs for first half of media channels
     with initAlloc:
         with st.container():
