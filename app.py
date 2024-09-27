@@ -36,6 +36,9 @@ def main():
     # Load Excel data
     excel_data = load_excel("projets/" + session_params["mission"] + "/raw.xlsx")
 
+    # Ajouter le titre de la page avec le nom de la mission
+    st.title(f"Projet MMM : {session_params['mission']}")
+
     # Split the dataset based on the same split made during training
     train_split = round(0.9 * excel_data["DATA"].shape[0])
 
@@ -138,12 +141,12 @@ def main():
     toDisplayMedia = [
         "TV",
         "OOH",
-        "Radio",
-        "Print",
-        "Search",
-        "Display",
+        "RADIO",
+        "PRINT",
+        "SEARCH",
+        "DISPLAY",
         "VOL",
-        "Social",
+        "SOCIAL",
     ]
 
     # Display allocation inputs for first half of media channels
