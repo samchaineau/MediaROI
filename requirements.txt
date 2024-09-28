@@ -5,7 +5,7 @@ immutabledict>=2.0.0
 jax==0.4.25
 jaxlib==0.4.25
 matplotlib==3.6.1
-numpy>=1.23
+numpy==1.26
 numpyro==0.15.3
 pandas>=1.1.5
 scipy
