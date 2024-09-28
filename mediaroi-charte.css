@@ -70,6 +70,9 @@ h4
 footer {visibility: hidden;}
 header {visibility: hidden;}
 
+label {
+    font-size: 14px;
+}
 
 /* ------ colors ------ */
 

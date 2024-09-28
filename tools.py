@@ -4,6 +4,13 @@ import streamlit as st
 from lightweight_mmm import media_transforms
 
 
+def format_title_media(title: str) -> str:
+    if title in ["TV", "OOH"]:
+        return title
+    else:
+        return title[0] + title[1:].lower()
+
+
 def load_excel(file: str) -> dict:
     """
     Load an Excel file into a dictionary of DataFrames, one for each sheet.

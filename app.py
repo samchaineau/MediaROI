@@ -169,13 +169,13 @@ def main():
                         # Display allocation in percentage or absolute amount
                         if usePerc:
                             st.number_input(
-                                f"Init. {mediaName} in %",
+                                f"Init. {format_title_media(mediaName)} in %",
                                 value=initMedia[mediaName]["Allocation"] * 100,
                                 disabled=True,
                             )
                         else:
                             st.number_input(
-                                f"Init. {mediaName} in €",
+                                f"Init. {format_title_media(mediaName)} in €",
                                 value=initMedia[mediaName]["Amount"],
                                 disabled=True,
                             )
@@ -183,11 +183,15 @@ def main():
                         # Handle media channels not present in the data
                         if usePerc:
                             st.number_input(
-                                f"Init. {mediaName} in %", value=0, disabled=True
+                                f"Init. {format_title_media(mediaName)} in %",
+                                value=0,
+                                disabled=True,
                             )
                         else:
                             st.number_input(
-                                f"Init. {mediaName} in €", value=0, disabled=True
+                                f"Init. {format_title_media(mediaName)} in €",
+                                value=0,
+                                disabled=True,
                             )
 
         # Repeat the process for second half of media channels
@@ -199,24 +203,28 @@ def main():
                     if mediaName in initMedia.keys():
                         if usePerc:
                             st.number_input(
-                                f"Init. {mediaName} in %",
+                                f"Init. {format_title_media(mediaName)} in %",
                                 value=initMedia[mediaName]["Allocation"] * 100,
                                 disabled=True,
                             )
                         else:
                             st.number_input(
-                                f"Init. {mediaName} in €",
+                                f"Init. {format_title_media(mediaName)} in €",
                                 value=initMedia[mediaName]["Amount"],
                                 disabled=True,
                             )
                     else:
                         if usePerc:
                             st.number_input(
-                                f"Init. {mediaName} in %", value=0, disabled=True
+                                f"Init. {format_title_media(mediaName)} in %",
+                                value=0,
+                                disabled=True,
                             )
                         else:
                             st.number_input(
-                                f"Init. {mediaName} in €", value=0, disabled=True
+                                f"Init. {format_title_media(mediaName)} in €",
+                                value=0,
+                                disabled=True,
                             )
 
     # Display the calculated ROI in a styled container
@@ -266,13 +274,13 @@ def main():
                         # Display optimized allocation as percentage or amount based on usePerc flag
                         if usePerc:
                             st.number_input(
-                                f"Opt. {mediaName} in %",
+                                f"Opt. {format_title_media(mediaName)} in %",
                                 value=optimMedia[mediaName]["Allocation"] * 100,
                                 disabled=True,
                             )
                         else:
                             st.number_input(
-                                f"Opt. {mediaName} in €",
+                                f"Opt. {format_title_media(mediaName)} in €",
                                 value=optimMedia[mediaName]["Amount"],
                                 disabled=True,
                             )
@@ -280,11 +288,15 @@ def main():
                         # Display zero value if media type is not found in optimMedia
                         if usePerc:
                             st.number_input(
-                                f"Opt. {mediaName} in %", value=0, disabled=True
+                                f"Opt. {format_title_media(mediaName)} in %",
+                                value=0,
+                                disabled=True,
                             )
                         else:
                             st.number_input(
-                                f"Opt. {mediaName} in €", value=0, disabled=True
+                                f"Opt. {format_title_media(mediaName)} in €",
+                                value=0,
+                                disabled=True,
                             )
 
         # Second container for media allocation display (next 4 media types)
@@ -298,24 +310,28 @@ def main():
                     if mediaName in optimMedia.keys():
                         if usePerc:
                             st.number_input(
-                                f"Opt. {mediaName} in %",
+                                f"Opt. {format_title_media(mediaName)} in %",
                                 value=optimMedia[mediaName]["Allocation"] * 100,
                                 disabled=True,
                             )
                         else:
                             st.number_input(
-                                f"Opt. {mediaName} in €",
+                                f"Opt. {format_title_media(mediaName)} in €",
                                 value=optimMedia[mediaName]["Amount"],
                                 disabled=True,
                             )
                     else:
                         if usePerc:
                             st.number_input(
-                                f"Opt. {mediaName} in %", value=0, disabled=True
+                                f"Opt. {format_title_media(mediaName)} in %",
+                                value=0,
+                                disabled=True,
                             )
                         else:
                             st.number_input(
-                                f"Opt. {mediaName} in €", value=0, disabled=True
+                                f"Opt. {format_title_media(mediaName)} in €",
+                                value=0,
+                                disabled=True,
                             )
 
     # Display the optimized ROI in a styled container
@@ -456,7 +472,7 @@ def main():
                         if media in list(grouped_start_amount["Media Type"]):
                             if usePerc:
                                 elements["input"] = st.number_input(
-                                    f"{media} in %",
+                                    f"{format_title_media(media)} in %",
                                     value=access_type_budget(
                                         grouped_start_amount, media, "Allocation"
                                     ),
@@ -468,7 +484,7 @@ def main():
                                 )
                             else:
                                 elements["input"] = st.number_input(
-                                    f"{media} in Euros",
+                                    f"{format_title_media(media)} in Euros",
                                     value=access_type_budget(
                                         grouped_start_amount, media, "New Amount"
                                     ),
@@ -479,11 +495,15 @@ def main():
                         else:
                             if usePerc:
                                 elements["input"] = st.number_input(
-                                    f"{media} in %", value=0, disabled=True
+                                    f"{format_title_media(media)} in %",
+                                    value=0,
+                                    disabled=True,
                                 )
                             else:
                                 elements["input"] = st.number_input(
-                                    f"{media} in Euros", value=0, disabled=True
+                                    f"{format_title_media(media)} in Euros",
+                                    value=0,
+                                    disabled=True,
                                 )
 
             # Handle remaining media types
@@ -493,7 +513,7 @@ def main():
                         if media in list(grouped_start_amount["Media Type"]):
                             if usePerc:
                                 elements["input"] = st.number_input(
-                                    f"{media} in %",
+                                    f"{format_title_media(media)} in %",
                                     value=access_type_budget(
                                         grouped_start_amount, media, "Allocation"
                                     ),
@@ -505,7 +525,7 @@ def main():
                                 )
                             else:
                                 elements["input"] = st.number_input(
-                                    f"{media} in Euros",
+                                    f"{format_title_media(media)} in Euros",
                                     value=access_type_budget(
                                         grouped_start_amount, media, "New Amount"
                                     ),
@@ -516,11 +536,15 @@ def main():
                         else:
                             if usePerc:
                                 elements["input"] = st.number_input(
-                                    f"{media} in %", value=0, disabled=True
+                                    f"{format_title_media(media)} in %",
+                                    value=0,
+                                    disabled=True,
                                 )
                             else:
                                 elements["input"] = st.number_input(
-                                    f"{media} in Euros", value=0, disabled=True
+                                    f"{format_title_media(media)} in Euros",
+                                    value=0,
+                                    disabled=True,
                                 )
 
     # Combine media allocation inputs into one dictionary
