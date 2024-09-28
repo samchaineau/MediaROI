@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import kaleido
 
 from lightweight_mmm import (
     utils,
