@@ -329,8 +329,9 @@ def makeSimulation(
     )
 
     # Generate test data for simulation
+    days_to_simulate = 365
     data_to_test = pd.DataFrame(
-        np.ones((10, len(simulationData["Media_var"]))) / 10,
+        np.ones((days_to_simulate, len(simulationData["Media_var"]))) / days_to_simulate,
         columns=list(simulationRecords.keys()),
     )
     data_to_test = data_to_test / data_to_test.sum(axis=0)
@@ -414,8 +415,9 @@ def checkGlobalPred(
     )
 
     # Generate test data for simulation
+    days_to_simulate = 365
     data_to_test = pd.DataFrame(
-        np.ones((10, len(simulationData["Media_var"]))) / 10,
+        np.ones((days_to_simulate, len(simulationData["Media_var"]))) / days_to_simulate,
         columns=list(simulationRecords.keys()),
     )
 
