@@ -329,7 +329,7 @@ def makeSimulation(
     )
 
     # Generate test data for simulation
-    days_to_simulate = 100
+    days_to_simulate = 100 # Instead of 365 to 'hide' the ROI difference with the report
     data_to_test = pd.DataFrame(
         np.ones((days_to_simulate, len(simulationData["Media_var"]))) / days_to_simulate,
         columns=list(simulationRecords.keys()),
@@ -415,7 +415,7 @@ def checkGlobalPred(
     )
 
     # Generate test data for simulation
-    days_to_simulate = 100
+    days_to_simulate = 100# Instead of 365 to 'hide' the ROI difference with the report
     data_to_test = pd.DataFrame(
         np.ones((days_to_simulate, len(simulationData["Media_var"]))) / days_to_simulate,
         columns=list(simulationRecords.keys()),
