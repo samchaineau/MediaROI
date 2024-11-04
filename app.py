@@ -38,7 +38,7 @@ def main():
     excel_data = load_excel("projets/" + session_params["mission"] + "/raw.xlsx")
 
     # Ajouter le titre de la page avec le nom de la mission
-    st.title(f"Projet MMM : {session_params['mission']}")
+    st.title(f"MMM Project : {session_params['mission']}")
 
     # Split the dataset based on the same split made during training
     train_split = round(0.9 * excel_data["DATA"].shape[0])
@@ -408,7 +408,7 @@ def main():
             )
 
     # Section for the simulator
-    st.title("Simulateur Mix Media")
+    st.title("Mix Media Simulator")
     optimCol, _, _ = st.columns([3, 5, 3])
 
     # Toggle switch for using optimized budget
